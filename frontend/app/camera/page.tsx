@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export default function FaceDetectionPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("ready");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (isCameraOn) {
@@ -14,55 +12,38 @@ export default function FaceDetectionPage() {
     } else {
       stopCamera();
     }
-    
-    // Cleanup when component unmounts
-    return () => {
-      stopCamera();
-    };
   }, [isCameraOn]);
 
   const startCamera = async () => {
     try {
       setCameraStatus("starting");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
-          facingMode: "user"
-        }
-      });
-      
-      const video = videoRef.current;
-      if (video) {
-        (video as any).srcObject = stream;
-        streamRef.current = stream;
+      const response = await fetch('http://localhost:8000/start_camera', { method: 'POST' });
+      const data = await response.json();
+      if (data.status === 'started') {
+        setIsCameraOn(true);
         setCameraStatus("active");
-
-        video.onloadedmetadata = () => {
-          video.play().catch(e => console.error("Video play error:", e));
-        };
+      } else {
+        setCameraStatus("error");
+        setIsCameraOn(false);
       }
     } catch (error) {
-      console.error("Camera access denied:", error);
+      console.error("Failed to start camera:", error);
       setCameraStatus("error");
       setIsCameraOn(false);
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      const stream = streamRef.current;
-      const tracks = stream.getTracks();
-      tracks.forEach(track => track.stop());
-      streamRef.current = null;
+  const stopCamera = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/stop_camera', { method: 'POST' });
+      const data = await response.json();
+      if (data.status === 'stopped') {
+        setIsCameraOn(false);
+        setCameraStatus("ready");
+      }
+    } catch (error) {
+      console.error("Failed to stop camera:", error);
     }
-    
-    const video = videoRef.current;
-    if (video) {
-      (video as any).srcObject = null;
-    }
-    
-    setCameraStatus("ready");
   };
 
   const handleCameraToggle = () => {
@@ -143,11 +124,9 @@ export default function FaceDetectionPage() {
                       </div>
                     </div>
                   ) : (
-                    <video
-                      ref={videoRef}
+                    <img
+                      src="http://localhost:8000/video_feed"
                       className="h-full w-full object-cover"
-                      muted
-                      playsInline
                     />
                   )}
                 </div>
