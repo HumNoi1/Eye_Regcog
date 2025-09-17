@@ -5,8 +5,8 @@ import { useState, useRef, useEffect } from "react";
 export default function FaceDetectionPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("ready");
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (isCameraOn) {
