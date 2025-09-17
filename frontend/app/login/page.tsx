@@ -1,4 +1,3 @@
-// app/login/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -33,8 +32,23 @@ export default function LoginPage() {
             <h1 className="text-4xl/tight font-semibold">
               EyeRecog Home 👋
             </h1>
-            
-
+            <p className="mt-4 text-lg opacity-80">
+              ระบบยืนยันตัวตนด้วยการตรวจจับใบหน้า ปลอดภัย และใช้งานง่าย
+            </p>
+            <div className="mt-8 grid gap-4">
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-green-500" />
+                <span className="text-sm opacity-70">เข้าสู่ระบบด้วยอีเมล</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-blue-500" />
+                <span className="text-sm opacity-70">ตรวจจับใบหน้าแบบเรียลไทม์</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-purple-500" />
+                <span className="text-sm opacity-70">ระบบรักษาความปลอดภัย</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -53,19 +67,12 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              {/* Form (UI only) */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault(); // UI only
-                  alert("นี่คือหน้า UI อย่างเดียว (ยังไม่เชื่อม backend)");
-                }}
-                className="grid gap-4"
-              >
+              {/* Login Form (UI only) */}
+              <div className="grid gap-4">
                 <label className="grid gap-1">
                   <span className="text-sm">อีเมล</span>
                   <input
                     type="email"
-                    required
                     placeholder="you@example.com"
                     className="w-full rounded-xl border border-black/10 bg-transparent px-3 py-2 outline-none ring-foreground/20 transition placeholder:opacity-60 focus:ring-2 dark:border-white/20"
                   />
@@ -76,7 +83,6 @@ export default function LoginPage() {
                   <div className="relative">
                     <input
                       type={showPwd ? "text" : "password"}
-                      required
                       placeholder="••••••••"
                       className="w-full rounded-xl border border-black/10 bg-transparent px-3 py-2 pr-12 outline-none ring-foreground/20 transition placeholder:opacity-60 focus:ring-2 dark:border-white/20"
                     />
@@ -109,7 +115,7 @@ export default function LoginPage() {
                 </div>
 
                 <button
-                  type="submit"
+                  onClick={() => alert("นี่คือหน้า UI อย่างเดียว (ยังไม่เชื่อม backend)")}
                   className="mt-1 h-11 w-full rounded-xl bg-foreground font-medium text-background transition hover:opacity-90 active:opacity-80"
                 >
                   Sign in
@@ -121,7 +127,7 @@ export default function LoginPage() {
                     สร้างบัญชีใหม่
                   </a>
                 </div>
-              </form>
+              </div>
 
               {/* Divider */}
               <div className="my-6 flex items-center gap-3">
@@ -130,14 +136,14 @@ export default function LoginPage() {
                 <div className="h-px flex-1 bg-black/10 dark:bg-white/15" />
               </div>
 
-              {/* Social (UI only) */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  className="h-10 rounded-xl border border-black/10 bg-white/70 text-sm backdrop-blur dark:border-white/15 dark:bg-black/30"
-                  type="button"
+              {/* Alternative Login Options */}
+              <div className="flex justify-center">
+                <a
+                  href="/camera"
+                  className="flex h-10 items-center justify-center rounded-xl border border-black/10 bg-white/70 text-sm backdrop-blur transition hover:bg-white/80 dark:border-white/15 dark:bg-black/30 dark:hover:bg-black/40"
                 >
-                  Face detact
-                </button>
+                  📷 Face Camera
+                </a>
                
               </div>
             </div>
