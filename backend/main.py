@@ -22,7 +22,7 @@ model = None
 @app.on_event("startup")
 async def startup_event():
     global model
-    model = YOLO('models/best.pt')
+    model = YOLO('models/yolo11n.pt')
 
 @app.post("/start_camera")
 async def start_camera():
