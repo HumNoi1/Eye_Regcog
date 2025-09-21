@@ -37,14 +37,14 @@ export default function FaceDetectionPage() {
       try {
         setModelStatus("loading");
         // Prefer WebGPU if available, fallback to WebGL/wasm
-        const epOrder = (await (ort as any).env.webgpu?.isSupported)
-          ? (["webgpu", "wasm"] as const)
-          : (["webgl", "wasm"] as const);
+        const epOrder: ort.InferenceSession.ExecutionProviderName[] = (await (ort as any).env.webgpu?.isSupported)
+          ? ["webgpu", "wasm"]
+          : ["webgl", "wasm"];
 
         const modelUrl = `https://huggingface.co/${HF_REPO}/resolve/main/${MODEL_FILE}`;
 
         const session = await ort.InferenceSession.create(modelUrl, {
-          executionProviders: epOrder as unknown as ort.InferenceSession.ExecutionProvider[],
+          executionProviders: epOrder,
           graphOptimizationLevel: "all",
         });
         sessionRef.current = session;
