@@ -1,9 +1,10 @@
+import base64
+
 import cv2
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+import numpy as np
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
-import numpy as np
 
 app = FastAPI()
 
@@ -15,62 +16,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-camera_active = False
-cap = None
-model = None
+model: YOLO | None = None
+
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
+    """Load the YOLO model once when the application starts."""
+
     global model
-    model = YOLO('models/yolo11n.pt')
+    model = YOLO("models/yolo11n.pt")
 
-@app.post("/start_camera")
-async def start_camera():
-    global camera_active, cap
-    if not camera_active:
-        cap = cv2.VideoCapture(1)
-        if cap.isOpened():
-            camera_active = True
-            return {"status": "started"}
-        else:
-            return {"status": "failed to open camera"}
-    return {"status": "camera already active"}
 
-@app.post("/stop_camera")
-async def stop_camera():
-    global camera_active, cap
-    if camera_active and cap:
-        cap.release()
-        camera_active = False
-        return {"status": "stopped"}
-    return {"status": "camera not active"}
+@app.post("/process_frame")
+async def process_frame(file: UploadFile = File(...)) -> dict[str, str]:
+    """Receive a frame from the frontend, run detection and return the annotated image."""
 
-def generate_frames():
-    global cap, model
-    while camera_active and cap and cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
 
-        # Run YOLO detection if model is loaded
-        if model:
-            results = model(frame)
-            # Annotate frame with detections
-            frame = results[0].plot()
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty image data")
 
-        # Encode frame to JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
-        if not ret:
-            continue
-        frame_bytes = buffer.tobytes()
+    np_frame = np.frombuffer(contents, np.uint8)
+    frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
 
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    if frame is None:
+        raise HTTPException(status_code=400, detail="Invalid image data")
 
-@app.get("/video_feed")
-async def video_feed():
-    return StreamingResponse(generate_frames(), media_type='multipart/x-mixed-replace; boundary=frame')
+    results = model(frame)
+    annotated_frame = results[0].plot()
+
+    success, buffer = cv2.imencode(".jpg", annotated_frame)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to encode processed frame")
+
+    encoded_image = base64.b64encode(buffer).decode("utf-8")
+    return {"processed_image": encoded_image}
+
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {"message": "Eye Detection API"}
