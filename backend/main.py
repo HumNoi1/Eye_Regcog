@@ -1,5 +1,6 @@
-import base64
+#uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
+import base64
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
