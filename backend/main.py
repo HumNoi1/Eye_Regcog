@@ -24,7 +24,7 @@ async def startup_event() -> None:
     """Load the YOLO model once when the application starts."""
 
     global model
-    model = YOLO("models/yolo11n.pt")
+    model = YOLO("models/best.pt")
 
 
 @app.post("/process_frame")
