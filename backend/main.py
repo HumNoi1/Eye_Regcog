@@ -2,6 +2,7 @@
 
 import base64
 import cv2
+import io
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -20,9 +21,6 @@ app.add_middleware(
 
 model: YOLO | None = None
 
-camera_active = False
-cap = None
-
 @app.on_event("startup")
 async def startup_event() -> None:
     """Load the YOLO model once when the application starts."""
@@ -30,54 +28,25 @@ async def startup_event() -> None:
     global model
     model = YOLO("models/best.pt")
 
-
-@app.post("/start_camera")
-async def start_camera():
-    global camera_active, cap
-    if not camera_active:
-        cap = cv2.VideoCapture(0)
-        if cap.isOpened():
-            camera_active = True
-            return {"status": "started"}
+@app.post("/process_frame")
+async def process_frame(file: UploadFile = File(...)):
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    if model:
+        results = model(frame)
+        # Annotate frame with detections
+        annotated_frame = results[0].plot()
+        
+        # Encode annotated frame to JPEG
+        ret, buffer = cv2.imencode('.jpg', annotated_frame)
+        if ret:
+            return StreamingResponse(io.BytesIO(buffer.tobytes()), media_type="image/jpeg")
         else:
-            return {"status": "failed to open camera"}
-    return {"status": "camera already active"}
-
-@app.post("/stop_camera")
-async def stop_camera():
-    global camera_active, cap
-    if camera_active and cap:
-        cap.release()
-        camera_active = False
-        return {"status": "stopped"}
-    return {"status": "camera not active"}
-
-def generate_frames():
-    global cap, model
-    while camera_active and cap and cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Run YOLO detection if model is loaded
-        if model:
-            results = model(frame)
-            # Annotate frame with detections
-            frame = results[0].plot()
-
-        # Encode frame to JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
-        if not ret:
-            continue
-        frame_bytes = buffer.tobytes()
-
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-@app.get("/video_feed")
-async def video_feed():
-    return StreamingResponse(generate_frames(), media_type='multipart/x-mixed-replace; boundary=frame')
-
+            raise HTTPException(status_code=500, detail="Failed to encode image")
+    else:
+        raise HTTPException(status_code=500, detail="Model not loaded")
 
 @app.get("/")
 async def root() -> dict[str, str]:

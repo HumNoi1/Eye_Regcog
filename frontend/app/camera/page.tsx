@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function FaceDetectionPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("ready");
+  const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isCameraOn) {
@@ -17,14 +22,13 @@ export default function FaceDetectionPage() {
   const startCamera = async () => {
     try {
       setCameraStatus("starting");
-      const response = await fetch('http://localhost:8000/start_camera', { method: 'POST' });
-      const data = await response.json();
-      if (data.status === 'started') {
-        setIsCameraOn(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
         setCameraStatus("active");
-      } else {
-        setCameraStatus("error");
-        setIsCameraOn(false);
+        captureAndSend();
       }
     } catch (error) {
       console.error("Failed to start camera:", error);
@@ -33,16 +37,52 @@ export default function FaceDetectionPage() {
     }
   };
 
-  const stopCamera = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/stop_camera', { method: 'POST' });
-      const data = await response.json();
-      if (data.status === 'stopped') {
-        setIsCameraOn(false);
-        setCameraStatus("ready");
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current);
+      captureTimeoutRef.current = null;
+    }
+    setProcessedImage(null);
+    setCameraStatus("ready");
+  };
+
+  const captureAndSend = async () => {
+    if (!videoRef.current || !canvasRef.current || !isCameraOn) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const formData = new FormData();
+      formData.append('file', blob, 'frame.jpg');
+
+      try {
+        const response = await fetch('http://localhost:8000/process_frame', {
+          method: 'POST',
+          body: formData,
+        });
+        if (response.ok) {
+          const imageBlob = await response.blob();
+          const imageUrl = URL.createObjectURL(imageBlob);
+          setProcessedImage(imageUrl);
+        }
+      } catch (error) {
+        console.error('Error processing frame:', error);
       }
-    } catch (error) {
-      console.error("Failed to stop camera:", error);
+    }, 'image/jpeg');
+
+    if (isCameraOn) {
+      captureTimeoutRef.current = setTimeout(captureAndSend, 100); // Send every 100ms
     }
   };
 
@@ -114,7 +154,19 @@ export default function FaceDetectionPage() {
               {/* Camera Section */}
               <div className="mb-6">
                 <div className="relative mx-auto h-64 w-full overflow-hidden rounded-xl border-2 border-dashed border-black/20 bg-black/5 dark:border-white/20 dark:bg-white/5">
-                  {!isCameraOn ? (
+                  <video
+                    ref={videoRef}
+                    className="h-full w-full object-cover"
+                    style={{ display: isCameraOn && !processedImage ? 'block' : 'none' }}
+                  />
+                  <canvas ref={canvasRef} style={{ display: 'none' }} />
+                  {processedImage && (
+                    <img
+                      src={processedImage}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {!isCameraOn && !processedImage && (
                     <div className="flex h-full items-center justify-center">
                       <div className="text-center">
                         <div className="mx-auto mb-3 size-16 rounded-full bg-black/10 flex items-center justify-center dark:bg-white/10">
@@ -123,11 +175,6 @@ export default function FaceDetectionPage() {
                         <p className="text-sm opacity-70">กดปุ่มด้านล่างเพื่อเปิดกล้อง</p>
                       </div>
                     </div>
-                  ) : (
-                    <img
-                      src="http://localhost:8000/video_feed"
-                      className="h-full w-full object-cover"
-                    />
                   )}
                 </div>
               </div>
