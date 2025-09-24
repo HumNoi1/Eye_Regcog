@@ -4,6 +4,7 @@ import base64
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 
@@ -19,6 +20,8 @@ app.add_middleware(
 
 model: YOLO | None = None
 
+camera_active = False
+cap = None
 
 @app.on_event("startup")
 async def startup_event() -> None:
@@ -32,7 +35,7 @@ async def startup_event() -> None:
 async def start_camera():
     global camera_active, cap
     if not camera_active:
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(0)
         if cap.isOpened():
             camera_active = True
             return {"status": "started"}
@@ -62,12 +65,18 @@ def generate_frames():
             # Annotate frame with detections
             frame = results[0].plot()
 
-    success, buffer = cv2.imencode(".jpg", annotated_frame)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to encode processed frame")
+        # Encode frame to JPEG
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
+        frame_bytes = buffer.tobytes()
 
-    encoded_image = base64.b64encode(buffer).decode("utf-8")
-    return {"processed_image": encoded_image}
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+@app.get("/video_feed")
+async def video_feed():
+    return StreamingResponse(generate_frames(), media_type='multipart/x-mixed-replace; boundary=frame')
 
 
 @app.get("/")
