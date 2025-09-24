@@ -67,28 +67,60 @@ export default function FaceDetectionPage() {
     canvas.height = videoRef.current.videoHeight;
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const formData = new FormData();
-      formData.append('file', blob, 'frame.jpg');
+    // Resize for optimization if too large
+    if (canvas.width > 640 || canvas.height > 480) {
+      const scale = Math.min(640 / canvas.width, 480 / canvas.height);
+      const newWidth = canvas.width * scale;
+      const newHeight = canvas.height * scale;
+      const resizedCanvas = document.createElement('canvas');
+      const resizedCtx = resizedCanvas.getContext('2d');
+      resizedCanvas.width = newWidth;
+      resizedCanvas.height = newHeight;
+      resizedCtx?.drawImage(canvas, 0, 0, newWidth, newHeight);
+      // Use resized canvas for blob
+      resizedCanvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append('file', blob, 'frame.jpg');
 
-      try {
-        const response = await fetch('https://humnoi1-my-yolo.hf.space/process_frame', {
-          method: 'POST',
-          body: formData,
-        });
-        if (response.ok) {
-          const imageBlob = await response.blob();
-          const imageUrl = URL.createObjectURL(imageBlob);
-          setProcessedImage(imageUrl);
+        try {
+          const response = await fetch('http://localhost:8000/process_frame', {
+            method: 'POST',
+            body: formData,
+          });
+          if (response.ok) {
+            const imageBlob = await response.blob();
+            const imageUrl = URL.createObjectURL(imageBlob);
+            setProcessedImage(imageUrl);
+          }
+        } catch (error) {
+          console.error('Error processing frame:', error);
         }
-      } catch (error) {
-        console.error('Error processing frame:', error);
-      }
-    }, 'image/jpeg');
+      }, 'image/jpeg', 0.7); // Lower quality for faster transmission
+    } else {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append('file', blob, 'frame.jpg');
+
+        try {
+          const response = await fetch('http://localhost:8000/process_frame', {
+            method: 'POST',
+            body: formData,
+          });
+          if (response.ok) {
+            const imageBlob = await response.blob();
+            const imageUrl = URL.createObjectURL(imageBlob);
+            setProcessedImage(imageUrl);
+          }
+        } catch (error) {
+          console.error('Error processing frame:', error);
+        }
+      }, 'image/jpeg', 0.7);
+    }
 
     if (isCameraOn) {
-      captureTimeoutRef.current = setTimeout(captureAndSend, 100); // Send every 100ms
+      captureTimeoutRef.current = setTimeout(captureAndSend, 1000 / 30); // 30 FPS
     }
   };
 
