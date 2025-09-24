@@ -20,6 +20,12 @@ export default function FaceDetectionPage() {
   }, [isCameraOn]);
 
   const startCamera = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('Camera not supported in this browser or environment');
+      setCameraStatus("error");
+      setIsCameraOn(false);
+      return;
+    }
     try {
       setCameraStatus("starting");
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -67,8 +73,11 @@ export default function FaceDetectionPage() {
       formData.append('file', blob, 'frame.jpg');
 
       try {
-        const response = await fetch('http://localhost:8000/process_frame', {
+        const response = await fetch('', {
           method: 'POST',
+          headers: {
+            'Authorization': '',
+          },
           body: formData,
         });
         if (response.ok) {
