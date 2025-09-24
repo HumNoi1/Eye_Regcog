@@ -28,25 +28,39 @@ async def startup_event() -> None:
     model = YOLO("models/best.pt")
 
 
-@app.post("/process_frame")
-async def process_frame(file: UploadFile = File(...)) -> dict[str, str]:
-    """Receive a frame from the frontend, run detection and return the annotated image."""
+@app.post("/start_camera")
+async def start_camera():
+    global camera_active, cap
+    if not camera_active:
+        cap = cv2.VideoCapture(1)
+        if cap.isOpened():
+            camera_active = True
+            return {"status": "started"}
+        else:
+            return {"status": "failed to open camera"}
+    return {"status": "camera already active"}
 
-    if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+@app.post("/stop_camera")
+async def stop_camera():
+    global camera_active, cap
+    if camera_active and cap:
+        cap.release()
+        camera_active = False
+        return {"status": "stopped"}
+    return {"status": "camera not active"}
 
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(status_code=400, detail="Empty image data")
+def generate_frames():
+    global cap, model
+    while camera_active and cap and cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    np_frame = np.frombuffer(contents, np.uint8)
-    frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
-
-    if frame is None:
-        raise HTTPException(status_code=400, detail="Invalid image data")
-
-    results = model(frame)
-    annotated_frame = results[0].plot()
+        # Run YOLO detection if model is loaded
+        if model:
+            results = model(frame)
+            # Annotate frame with detections
+            frame = results[0].plot()
 
     success, buffer = cv2.imencode(".jpg", annotated_frame)
     if not success:
