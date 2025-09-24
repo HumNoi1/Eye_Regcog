@@ -73,11 +73,8 @@ export default function FaceDetectionPage() {
       formData.append('file', blob, 'frame.jpg');
 
       try {
-        const response = await fetch('', {
+        const response = await fetch('https://humnoi1-my-yolo.hf.space/process_frame', {
           method: 'POST',
-          headers: {
-            'Authorization': '',
-          },
           body: formData,
         });
         if (response.ok) {
