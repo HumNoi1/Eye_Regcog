@@ -28,7 +28,7 @@ async def startup_event():
 async def start_camera():
     global camera_active, cap
     if not camera_active:
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(0)
         if cap.isOpened():
             camera_active = True
             return {"status": "started"}
