@@ -20,7 +20,7 @@ export default function Home() {
           </div>
 
           <h1 className="text-3xl/tight font-semibold">
-            EyeRecog
+            EyeRecog ควย
           </h1>
           <p className="mx-auto mt-2 max-w-sm text-sm opacity-80">
             ระบบเข้าสู่ระบบและสมัครสมาชิกที่เรียบง่าย ปลอดภัย และใช้งานได้ทันที
